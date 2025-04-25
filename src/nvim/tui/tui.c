@@ -2059,6 +2059,29 @@ static void patch_terminfo_bugs(TUIData *tui, const char *term, const char *colo
   bool cygwin = terminfo_is_term_family(term, "cygwin");
 
   char *fix_normal = (char *)unibi_get_str(ut, unibi_cursor_normal);
+  
+  // After detecting terminfo bugs, patch wrong Ss/Se for 'st' terminal
+  if (strequal(term, "st") || strstr(term, "st-")) {
+    // Prefer standard Ss/Se sequences
+    int std_ss = unibi_find_ext_str(data->ut, "Ss");
+    int std_se = unibi_find_ext_str(data->ut, "Se");
+
+    if (std_ss >= 0 && std_se >= 0) {
+      const char *std_ss_str = "\x1b[%p1%d q";
+      const char *std_se_str = "\x1b[ q";
+
+      unibi_set_ext_str(data->ut, std_ss, std_ss_str);
+      unibi_set_ext_str(data->ut, std_se, std_se_str);
+
+      data->unibi_ext.set_cursor_style = std_ss;
+      data->unibi_ext.reset_cursor_style = std_se;
+
+      // Mark as patched to avoid fallback sequences
+      data->bypass_decsusr = true;
+ 
+      DLOG("Applied st cursor shape fix: Ss=%s, Se=%s", std_ss_str, std_se_str);
+    }
+  }
   if (fix_normal) {
     if (STARTS_WITH(fix_normal, "\x1b[?12l")) {
       // terminfo typically includes DECRST 12 as part of setting up the
